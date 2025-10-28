@@ -96,29 +96,16 @@ class Stage(nn.Module):
             x = block(x)
         return x
 
-class StemLayer(nn.Module):
-    def __init__(self, in_chans, out_dim):
-        super().__init__()
-        self.conv = nn.Conv2d(in_chans, out_dim, kernel_size=4, stride=4)
-        self.norm = nn.LayerNorm(out_dim, eps=1e-6)
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = x.permute(0, 2, 3, 1)  # NCHW → NHWC
-        x = self.norm(x)
-        x = x.permute(0, 3, 1, 2)  # NHWC → NCHW
-        return x
-
 class ConvNeXt(nn.Module):
     """Simplified ConvNeXt"""
-    def __init__(self, in_chans=3, num_classes=1000,
+    def __init__(self, in_chans=1, num_classes=2,
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768],
-                 drop_path_rate=0., layer_scale_init_value=1e-6,
-                 head_init_scale=1.):
+                 drop_path_rate=0., layer_scale_init_value=1e-6):
+
         super().__init__()
 
         # Stem
-        stem = StemLayer(in_chans, dims[0])
+        stem = DownsampleLayer(in_chans, dims[0], kernel_size=4, stride=4)
         # Downsample layers
         self.downsample_layers = nn.ModuleList()
         self.downsample_layers.append(stem)
@@ -127,7 +114,7 @@ class ConvNeXt(nn.Module):
         dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
 
-        
+
         self.stages = nn.ModuleList()
         # 4 DownSample Layers including stem
         for i in range(3):
@@ -144,11 +131,14 @@ class ConvNeXt(nn.Module):
                 layer_scale_init_value=layer_scale_init_value
             )
             self.stages.append(stage)
-            cur += depths[i] 
+            cur += depths[i]
 
         # Final classifier
-        self.norm = nn.LayerNorm(dims[-1], eps=1e-6)
-        self.head = nn.Linear(dims[-1], num_classes)
+        self.head = nn.Sequential(
+            nn.LayerNorm(dims[-1]),
+            nn.Dropout(0.3),
+            nn.Linear(dims[-1], num_classes)
+            )
 
     def forward(self, x):
         # Reduce spatial size and learn at each resolution
@@ -157,7 +147,6 @@ class ConvNeXt(nn.Module):
             x = self.stages[i](x)
 
         x = x.mean([-2, -1]) # global average pooling, (N, C, H, W) -> (N, C)
-        x = self.norm(x)
 
         x = self.head(x)
         return x
