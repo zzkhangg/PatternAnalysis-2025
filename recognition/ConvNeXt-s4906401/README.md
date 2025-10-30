@@ -5,26 +5,25 @@
 - [Goal](#Goal)
 - [Model Architecture](#model-architecture)
     - [ConvNext Block Structure](#convnext_block_structure)
+        - [Depthwise Convolution Layer](#depthwise-convolution-layer)
         - [Inverted Bottleneck Layer](#inverted-bottleneck-layer)
-        - [Activation Function](#activation-function)
         - [Normalization Layer](#normalization-layer)
     - [Architecture](#architecture)
-        - [Stage Compute Ratio](#stage-compute-ratio)
+        - [Stage](#stage)
         - [Stem Layer](#stem-layer)
         - [Downsampling Layer](#downsampling-layer)
         - [Classifier Layer](#classifier-layer)
 - [Dataset](#dataset)
     - [Overview](#overview)
     - [Data Preprocessing](#data-prepocessing)
-    - [Data Split](#data-split)
 - [Training Process](#training-process)
-- [Results](#results)
+- [Performance and Results](#performance-and-results)
     - [Performance Metrics](#performance-metrics)
     - [Example Predictions on Test Images](#example-predictions-on-test-images)
-- [Usage](#usage)
+- [Usage Instructions](#usage-instructions)
     - [Clone the Repository](#clone-the-repository)
     - [Install Dependencies](#install-dependencies)
-    - [Train model](#train-the-model)
+    - [Train model](#train-model)
     - [Make Predictions on Images](#make-predictions-on-images)
 - [References](#references)
 
@@ -54,7 +53,7 @@ Figure 1. ConvNeXt Block Structure
 ### Architecture
 The network is organized into stages, with stem layer at first and downsampling layers in between to progressively reduce spatial resolution while increasing feature depth. Each stage includes multiple residual blocks learning the feature at the corresponding resolution.
 
-#### Stage Compute Ratio
+#### Stage
 
 ConvNext has 4 stages and the number of blocks each stage are as follow (3, 3, 9, 3).
 
@@ -89,11 +88,23 @@ The ADNI dataset employed in this project contains MRI brain scans labeled as ei
 
 Table 1. ADNI Data Summary Table
 
+The dataset structure is arranged in the following hierarchy:
+```
+AD_NC/
+├── test/
+│   ├── AD/
+│   └── NC/
+├── train/
+│   ├── AD/
+│   └── NC/
+```
+
+The training set is further split into training and validation subsets based on patient IDs to avoid data leakage. Specifically, 10% of the patients are assigned to the validation set, while the remaining 90% are used for training, ensuring each patient appears in only one subset. The test set remains unchanged and is used as provided.
 ### Data Prepocessing
 
 To enhance model's generalization and prevent overfitting, various data augmentation techniques are used:
 
-- Resized to 224 x 224
+- Resized to 224 x 224 pixels
 
 - Converted to 1 channel
 
@@ -109,13 +120,10 @@ To enhance model's generalization and prevent overfitting, various data augmenta
 
 - Random Adjust Sharpness: randomly adjusts the sharpness of an image, used to make your model more robust to variations in image clarity or focus.
 
-### Data Split
-
-The training set is further split into training and validation subsets based on patient IDs to avoid data leakage. Specifically, 10% of the patients are assigned to the validation set, while the remaining 90% are used for training, ensuring each patient appears in only one subset. The test set remains unchanged and is used as provided.
 
 ## Training Process
 
-The model was trained on the ADNI dataset using PyTorch framework. The model was trained for 260 epochs with early stopping based on validation loss to prevent overfitting. For better generalization, the training uses AdamW optimizer with weight decay, Drop Path (Stochastic Depth) and Dropout.
+The model was trained for 260 epochs with early stopping based on validation loss to prevent overfitting. To improve generalization, the training employed the AdamW optimizer with weight decay, along with Drop Path (stochastic depth) and Dropout. Cross-entropy loss with label smoothing was used as the objective function for this classification task.
 
 The main hyperparameters used in the training process are summarized in [Table 2](#hyperparameters)
 
@@ -137,7 +145,7 @@ The main hyperparameters used in the training process are summarized in [Table 2
 
 Table 2. Summary of hyperparameters and training configuration.
 
-## Results
+## Performance and Results
 
 ### Performance metrics
 The model was trained for 260 epochs, with the best-performing model selected at the 240th epoch, corresponding to the lowest validation loss. The training and validation loss curves are shown below. As observed, the training loss dips slightly below the validation loss, suggesting a minor degree of overfitting.
@@ -146,7 +154,7 @@ The model was trained for 260 epochs, with the best-performing model selected at
 
 Figure 3. Loss curve of train and validation set.
 
-To evaluate the model’s performance on unseen data, it was tested on the test dataset. The model achieved an overall accuracy of 79.19%, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79. The confusion matrix below summarizes the results on the test set. As observed, the model performs well overall, but it still struggles to distinguish some actual AD cases from Normal Control, resulting in a number of false negatives.
+The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79. The confusion matrix below summarizes the results on the test set. As observed, the model performs well overall, but it still struggles to distinguish some actual AD cases from Normal Control, resulting in a number of false negatives.
 
 <img src="images/confusion_matrix.png" style="width:500px;"/>
 
@@ -162,7 +170,7 @@ Figure 4. Confusion  Matrix
 | ![NC_2.jpeg](images/NC_2.jpeg)       | NC         | NC              | 0.92       | 
 
 
-## Usage
+## Usage Instructions
 
 ### Clone the Repository
 You can clone the project by entering those commands as following in terminal: 
