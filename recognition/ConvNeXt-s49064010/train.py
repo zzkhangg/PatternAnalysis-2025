@@ -7,39 +7,44 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from modules import ConvNeXt
 from dataset import train_loader, val_loader
+# Device Configuration
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-num_epochs = 450
-weight_decay = 1e-4
-label_smoothing = 0.1
-drop_path_rate = 0.1 # Rate for drop whole res block
+# Hyper parameters
+num_epochs = 260
+in_chans = 1
 num_classes = 2
-input_channels = 1
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
+drop_path_rate = 0.3
+label_smoothing = 0.15
+learning_rate = 5e-4
+weight_decay = 1e-4
 
-model = ConvNeXt(in_chans=input_channels, num_classes=num_classes, drop_path_rate=0.1).to(device) 
-criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing) 
-optimizer = optim.AdamW(model.parameters(), lr=5e-4, weight_decay=weight_decay)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-5)
+model = ConvNeXt(in_chans=in_chans, num_classes=num_classes, drop_path_rate=drop_path_rate).to(device)
+criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-# Create directories 
-SAVE_DIR = "./save" 
-IMG_DIR = os.path.join(SAVE_DIR, "images") 
-os.makedirs(SAVE_DIR, exist_ok=True) 
-os.makedirs(IMG_DIR, exist_ok=True) 
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    optimizer, T_0=50, T_mult=1, eta_min=5e-6
+)
 
-# Track metrics
-train_losses, val_losses = [], [] 
-train_accs, val_accs = [], [] 
+# Create directories
+SAVE_DIR = "save"
+IMG_DIR = "images"
+os.makedirs(SAVE_DIR, exist_ok=True)
+os.makedirs(IMG_DIR, exist_ok=True)
 
+# --- Tracking ---
+train_losses, val_losses = [], []
+train_accs, val_accs = [], []
 # Seed for reproducibility
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-# Early stopping parameters
-patience = 50  # stop if no improvement in val_acc for 50 epochs
+# Data for early stopping
 best_val_acc = 0.0
 best_model_wts = copy.deepcopy(model.state_dict())
 epochs_no_improve = 0
+patience = 50  # stop if val acc doesn’t improve for 20 epochs
 
 for epoch in range(num_epochs):
     model.train()
@@ -61,7 +66,7 @@ for epoch in range(num_epochs):
 
     train_acc = 100 * correct / total
     avg_loss = running_loss / len(train_loader)
-    
+
     # ---- Validation ----
     model.eval()
     val_correct, val_total, val_loss = 0, 0, 0.0
@@ -77,6 +82,7 @@ for epoch in range(num_epochs):
 
     val_acc = 100 * val_correct / val_total
     avg_val_loss = val_loss / len(val_loader)
+
     # ---- Early stopping based on validation accuracy ----
     if val_acc > best_val_acc: 
         best_val_acc = val_acc 
@@ -84,6 +90,8 @@ for epoch in range(num_epochs):
         epochs_no_improve = 0 
     else: 
         epochs_no_improve += 1
+
+    
 
     # Record metrics
     train_losses.append(avg_loss)
@@ -97,12 +105,18 @@ for epoch in range(num_epochs):
           f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_acc:.2f}% | ")
     print("-" * 80)
 
-    
     # ---- Stop if early stopping triggered ----
     if epochs_no_improve >= patience:
         print(f"Early stopping triggered at epoch {epoch+1}")
         break
     scheduler.step()
+
+# ---- Load best model and save ----
+model.load_state_dict(best_model_wts)
+torch.save(model.state_dict(), os.path.join(SAVE_DIR, "convnet_adni_best_val.pth"))
+
+# ---- Save final model ----
+torch.save(model.state_dict(), os.path.join(SAVE_DIR, "convnet_adni_final.pth"))
 
 # ---- Save plots ----
 plt.figure(figsize=(6, 5))
