@@ -7,13 +7,14 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from modules import ConvNeXt
 from dataset import get_loaders
-
+from sklearn.metrics import classification_report
 # --- Paths ---
 BASE_PATH = "ADNI"
 
 # For training/validation
 train_loader, val_loader = get_loaders(base_path=BASE_PATH, is_train=True, batch_size=256)
 
+test_loader = get_loaders(base_path=BASE_PATH, is_train=False, batch_size=128)
 # Device Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -145,5 +146,26 @@ plt.legend()
 plt.title('Accuracy Curve')
 plt.savefig(os.path.join(IMG_DIR, "accuracy_curve.png"))
 plt.close()
+
+all_labels = []
+all_preds = []
+
+model = ConvNeXt(in_chans=in_chans, num_classes=num_classes, drop_path_rate=drop_path_rate)
+model.load_state_dict(torch.load(os.path.join(SAVE_DIR, "convnet_adni_final.pth"), map_location=device, weights_only=True))
+model.to(device)
+model.eval()
+
+with torch.no_grad():
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+        outputs = model(images)
+        _, preds = torch.max(outputs, 1)
+        all_labels.extend(labels.cpu().numpy())
+        all_preds.extend(preds.cpu().numpy())
+
+class_names = ['AD', 'NC']
+
+report = classification_report(all_labels, all_preds, target_names=class_names)
+print(report)
 
 print("Training complete. Best model saved.")
