@@ -160,10 +160,11 @@ class ConvNeXt(nn.Module):
             dims: Num of Channels (resolution) at each stage
             drop_path: probability of drop res blocks
             layer_scale_init_value: init value for learnable scale
+            head_dropout: dropout prob of classifier head
     """
     def __init__(self, in_chans=1, num_classes=2,
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768],
-                 drop_path_rate=0., layer_scale_init_value=1e-6):
+                 drop_path_rate=0., layer_scale_init_value=1e-6, head_dropout = 0.5):
 
         super().__init__()
 
@@ -199,7 +200,7 @@ class ConvNeXt(nn.Module):
         # Final classifier
         self.head = nn.Sequential(
             nn.LayerNorm(dims[-1]),
-            nn.Dropout(0.5), # Dropout for regularization
+            nn.Dropout(head_dropout), # Dropout for regularization
             nn.Linear(dims[-1], num_classes)
             )
 
