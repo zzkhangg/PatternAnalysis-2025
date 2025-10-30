@@ -1,0 +1,4 @@
+/ADNI
+../../../.vscode
+*.zip
+__pycache__/
