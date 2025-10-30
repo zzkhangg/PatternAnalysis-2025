@@ -6,7 +6,13 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from modules import ConvNeXt
-from dataset import train_loader, val_loader
+from dataset import get_loaders
+
+# --- Paths ---
+BASE_PATH = "ADNI"
+
+# For training/validation
+train_loader, val_loader = get_loaders(base_path=BASE_PATH, is_train=True, batch_size=256)
 
 # Device Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -45,7 +51,7 @@ torch.cuda.manual_seed_all(42)
 best_val_acc = 0.0
 best_model_wts = copy.deepcopy(model.state_dict())
 epochs_no_improve = 0
-patience = 50  # stop if val acc doesn’t improve for 20 epochs
+patience = 50  # stop if val acc doesn’t improve for 50 epochs
 
 for epoch in range(num_epochs):
     model.train()

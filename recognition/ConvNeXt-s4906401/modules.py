@@ -3,26 +3,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 from timm.layers import trunc_normal_, DropPath
 
-class Block(nn.Module):
+class ResBlock(nn.Module):
     """ Each ConvNeXt Block implementation includes following layers:
     1. Depth wise Convolution Layer
     2. Normalization
-    3. 2 Linear layers with GELU activation function between
-    4. Permute back
-    We use (2) as we find it slightly faster in PyTorch
+    3. 2 Linear layers with SiLU activation function between
+    We need to permute for LayerNorm and back for MLP layer
+    
+    Args:
+            dim: Num of input channels
+            drop_path: probability of drop whole block
+            layer_scale_init_value: init value for learnable scale
     """
     def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6):
         super().__init__()
 
-        # Depthwise convolution (keeps number of channels)
-        self.dwconv = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        # Depthwise convolution
+        self.dwconv = nn.Conv2d(
+            in_channels=dim,
+            out_channels=dim,
+            kernel_size=7,
+            padding=3, #  spatial dimensions unchanged
+            groups=dim) # Each channel handled separately
 
-        # Simple LayerNorm (PyTorch built-in, applied after permute)
+        # Simple LayerNorm (applied after permute)
         self.norm = nn.LayerNorm(dim, eps=1e-6)
 
         # Pointwise (1x1) convolutions to mix between channels
         self.pwconv1 = nn.Linear(dim, 4 * dim)
-        self.activation_function = nn.GELU()
+        self.activation_function = nn.SiLU() # SiLu better smoother gradients
         self.pwconv2 = nn.Linear(4 * dim, dim)
 
         # Layer scaling (small learnable scale for residual branch)
@@ -33,6 +42,15 @@ class Block(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
     def forward(self, x):
+        """
+        Forward pass for ResBlock.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (N, C, H, W)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (N, C, H, W)
+        """
         input = x  # Save input for residual connection
 
         # Depthwise convolution in (N, C, H, W)
@@ -60,14 +78,32 @@ class Block(nn.Module):
 
 
 
-class DownsampleLayer(nn.Module):
-    """ Downsamples spatial resolution and increases channel depth """
+class DownsamplingLayer(nn.Module):
+    """ Downsampling Layer reduce spatial resolution and increases 
+    channel depth, consists of one convolution layer followed by
+    layer normalization
+    
+    Args:
+            in_dim: Num of input channels
+            out_dim: Num of output channels
+            kernel_size: size of sliding kernel
+            stride: num of pixels for a slide
+    """
     def __init__(self, in_dim, out_dim, kernel_size=2, stride=2):
         super().__init__()
         self.conv = nn.Conv2d(in_dim, out_dim, kernel_size=kernel_size, stride=stride)
         self.norm = nn.LayerNorm(out_dim, eps=1e-6)
 
     def forward(self, x):
+        """
+        Forward pass for DownsamplingLayer.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (N, C, H, W)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (N, C, H, W)
+        """
         x = self.conv(x)
         x = x.permute(0, 2, 3, 1)  # (N, C, H, W) → (N, H, W, C)
         x = self.norm(x)
@@ -77,14 +113,21 @@ class DownsampleLayer(nn.Module):
 
 
 class Stage(nn.Module):
-    """One ConvNeXt Stage includes `depth` blocks as specified """
+    """Each ConvNeXt Stage process feature maps at one resolution and comprises of
+    many residual blocks.
+    
+    Args:
+            in_dim: Num of input channels
+            drop_path_rates: list of drop probability for each res block
+            layer_scale_init_value: init value for learnable scale
+    """
     def __init__(self, dim, depth, drop_path_rates, layer_scale_init_value=1e-6):
         super().__init__()
 
         #
         self.blocks = nn.ModuleList()
         for j in range(depth):
-            block = Block(
+            block = ResBlock(
                 dim=dim,
                 drop_path=drop_path_rates[j],
                 layer_scale_init_value=layer_scale_init_value
@@ -92,12 +135,32 @@ class Stage(nn.Module):
             self.blocks.append(block)
 
     def forward(self, x):
+        """
+        Forward pass for ResBlock.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (N, C, H, W)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (N, C, H, W)
+        """
         for block in self.blocks:
             x = block(x)
         return x
 
 class ConvNeXt(nn.Module):
-    """Simplified ConvNeXt"""
+    """ConvNeXt architecture consists of:a stem layer, followed by a 
+    sequence of stages and downsampling layers in between. After each downsapling
+    layerm, reduce the resolution by half and double num of channels. At the end,
+    there is global average pooling and classifier with dropout
+        Args:
+            in_chans: Num of input channels
+            num_classes: classes for classification
+            depths: num of res blocks at each stage
+            dims: Num of Channels (resolution) at each stage
+            drop_path: probability of drop res blocks
+            layer_scale_init_value: init value for learnable scale
+    """
     def __init__(self, in_chans=1, num_classes=2,
                  depths=[3, 3, 9, 3], dims=[96, 192, 384, 768],
                  drop_path_rate=0., layer_scale_init_value=1e-6):
@@ -105,12 +168,12 @@ class ConvNeXt(nn.Module):
         super().__init__()
 
         # Stem
-        stem = DownsampleLayer(in_chans, dims[0], kernel_size=4, stride=4)
-        # Downsample layers
+        stem = DownsamplingLayer(in_chans, dims[0], kernel_size=4, stride=4)
+        # Downsampling layers
         self.downsample_layers = nn.ModuleList()
         self.downsample_layers.append(stem)
 
-        # Schedule DropPath rates
+        # Schedule DropPath rates for each stage
         dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
         cur = 0
 
@@ -118,7 +181,7 @@ class ConvNeXt(nn.Module):
         self.stages = nn.ModuleList()
         # 4 DownSample Layers including stem
         for i in range(3):
-            downsample_layer = DownsampleLayer(dims[i], dims[i+1])
+            downsample_layer = DownsamplingLayer(dims[i], dims[i+1])
             self.downsample_layers.append(downsample_layer)
 
         # 4 Stages
@@ -136,17 +199,28 @@ class ConvNeXt(nn.Module):
         # Final classifier
         self.head = nn.Sequential(
             nn.LayerNorm(dims[-1]),
-            nn.Dropout(0.5),
+            nn.Dropout(0.5), # Dropout for regularization
             nn.Linear(dims[-1], num_classes)
             )
 
     def forward(self, x):
+        """
+        Forward pass for ResBlock.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (N, C, H, W)
+
+        Returns:
+            torch.Tensor: Output tensor of shape (N, C, H, W)
+        """
         # Reduce spatial size and learn at each resolution
         for i in range(4):
+            # Downsampling layers and stages in between
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
 
         x = x.mean([-2, -1]) # global average pooling, (N, C, H, W) -> (N, C)
 
+        # Classification layer
         x = self.head(x)
         return x
