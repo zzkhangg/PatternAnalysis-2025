@@ -136,7 +136,7 @@ class ConvNeXt(nn.Module):
         # Final classifier
         self.head = nn.Sequential(
             nn.LayerNorm(dims[-1]),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(dims[-1], num_classes)
             )
 
