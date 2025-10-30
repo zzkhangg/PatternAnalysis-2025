@@ -7,6 +7,7 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from modules import ConvNeXt
 from dataset import train_loader, val_loader
+
 # Device Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
