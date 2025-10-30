@@ -4,13 +4,15 @@
 
 - [Goal](#Goal)
 - [Model Architecture](#model-architecture)
-    - [Stage Compute Ratio](#stage-compute-ratio)
-    - [Stem Stem](#stem-layer)
-    - [Inverted Bottleneck Layer](#inverted-bottleneck-layer)
-    - [Activation Function](#activation-function)
-    - [Normalization Layer](#normalization-layer)
-    - [Downsampling Layer](#downsampling-layer)
-    - [Classifier Layer](#classifier-layer)
+    - [ConvNext Block Structure](#convnext_block_structure)
+        - [Inverted Bottleneck Layer](#inverted-bottleneck-layer)
+        - [Activation Function](#activation-function)
+        - [Normalization Layer](#normalization-layer)
+    - [Architecture](#architecture)
+        - [Stage Compute Ratio](#stage-compute-ratio)
+        - [Stem Layer](#stem-layer)
+        - [Downsampling Layer](#downsampling-layer)
+        - [Classifier Layer](#classifier-layer)
 - [Dataset](#dataset)
     - [Overview](#overview)
     - [Data Preprocessing](#data-prepocessing)
@@ -32,14 +34,38 @@ The goal of this project is to classify brain MRI images from the Alzheimer’s 
 
 
 ## Model Architecture
-ConvNeXt is a modern convolutional neural network architecture that builds on the strengths of traditional CNNs while incorporating design principles inspired by Vision Transformers. Overall, it achieves transformer-level performance on vision tasks while retaining the efficiency and simplicity of convolutional networks [[1]](#convnext).. A ConvNeXt block consists of a large kernel depthwise convolution, layer normalization, pointwise convolution, followed by layer scaling and a resdidual/skip connection with stochastic depth. 
+### ConvNext Block Structure
+
+ConvNeXt is a modern convolutional neural network architecture that builds on the strengths of traditional CNNs while incorporating design principles inspired by Vision Transformers. Overall, it achieves transformer-level performance on vision tasks while retaining the efficiency and simplicity of convolutional networks [[1]](#convnext). A ConvNeXt block consists of a large kernel depthwise convolution, layer normalization, pointwise convolution, followed by layer scaling and a resdidual/skip connection with stochastic depth.
+#### Depthwise convolution Layer
+In each ConvNeXt block, a depthwise convolution is applied where each input channel is convolved separately with its own filter (groups = number of channels). This preserves the number of channels while allowing spatial feature extraction independently per channel. Depthwise convolution reduces computational cost compared to standard convolution while maintaining the ability to capture spatial patterns in feature maps.
+
+#### Inverted Bottleneck Layer
+Each ConvNeXt block adopts an inverted bottleneck design, where the feature channels are first expanded by 4× using a 1×1 convolution, followed by a SiLu activation, and then projected back to the original dimension with another 1×1 convolution. This structure allows more computation and non-linearity in a higher-dimensional space, improving feature representation without significantly increasing computational cost.
+
+#### Normalization Layer
+Instead of Batch Normalization in ResNet-50, ConvNeXt adopts Layer Normalization which is more stable across different batch sizes.
 
 ![ConvNeXt Block](images/convnext_block.png)
 <a id="convnext-block" src="convnext_block.png"></a>
 
 Figure 1. ConvNeXt Block Structure
 
-The network is organized into stages, with stem layer at first and downsampling layers in between to progressively reduce spatial resolution while increasing feature depth. Each stage includes multiple residual blocks learning the feature at the corresponding resolution. <br/>The image below demonstrates the model being used in this project. 
+### Architecture
+The network is organized into stages, with stem layer at first and downsampling layers in between to progressively reduce spatial resolution while increasing feature depth. Each stage includes multiple residual blocks learning the feature at the corresponding resolution.
+
+#### Stage Compute Ratio
+
+ConvNext has 4 stages and the number of blocks each stage are as follow (3, 3, 9, 3).
+
+#### Stem Layer
+A simple stem layer with a non-overlapping 4×4 convolution is used to downsample the input images, following the design principle of the Vision Transformer for early spatial reduction.
+
+#### Downsampling Layer
+ConvNeXt employs separate 2×2 convolutional layers with stride 2 between stages to downsample feature maps, reducing spatial resolution while increasing channel depth.
+
+#### Classifier Layer
+The ConvNeXt architecture ends with a Global Average Pooling layer followed by Layer Normalization and a Dropout layer before the final Fully Connected (FC) layer. These additions improve regularization and enhance training stability, particularly on smaller datasets. <br/><br/>The image below demonstrates the model being used in this project. 
 
 ![ConvNeXt Architecture](images/convnext_architecture.png)
 
@@ -47,34 +73,11 @@ The network is organized into stages, with stem layer at first and downsampling 
 
 Figure 2. ConvNeXt architecture used in this project
 
-### Stage Compute Ratio
-
-ConvNext has 4 stages and the number of blocks each stage is changed from (3, 4, 6, 3) in ResNet-50 to (3, 3, 9, 3).
-
-### Stem Layer
-
-A simple stem (4 x 4 non-overlapping convolution) are used in this model to downsample input images to mimic the design of Vision Transformer to downsample the input images.
-
-### Inverted Bottleneck Layer
-Each ConvNeXt block adopts an inverted bottleneck design, where the feature channels are first expanded by 4× using a 1×1 convolution, followed by a SiLu activation, and then projected back to the original dimension with another 1×1 convolution. This structure allows more computation and non-linearity in a higher-dimensional space, improving feature representation without significantly increasing computational cost.
-
-### Activation Function
-The ConvNeXt model in this project use SiLu activation function to introduce non-linearity to the model. SiLu provides better gradient flow and performance consistency, following modern transformer activation design.
-
-### Normalization Layer
-Instead of Batch Normalization in ResNet-50, ConvNeXt adopts Layer Normalization which is more stable across different batch sizes.
-
-### Downsampling Layer
-ConvNeXt separates downsampling into independent 2×2 convolutional layers with stride 2 between stages to reduce spatial resolution and increase feature depth.
-
-### Classifier Layer
-The ConvNeXt architecture ends with a Global Average Pooling layer followed by Layer Normalization and a Dropout layer before the final Fully Connected (FC) layer. These additions improve regularization and enhance training stability, particularly on smaller datasets.
-
 ## Dataset
 
 ### Overview
 
-The ADNI dataset used in this project consists of MRI brain images categorized into two classes: Alzheimer’s Disease (AD) and Normal Control (NC). Each image is grayscale with a resolution of 256 x 240 pixels. The filenames follow the format `patientID_index.png` where `patientID` represents the patient identifier and `index` is the image number.indicates the image number. The dataset statistics, including the number of images and patients in the training and testing sets for both classes, are summarized in [Table 1](#adni-table).
+The ADNI dataset employed in this project contains MRI brain scans labeled as either Alzheimer’s Disease (AD) or Normal Control (NC). All images are grayscale with a resolution of 256 × 240 pixels. File names use the format `patientID_index.png` where `patientID` identifies the patient and `index` denotes the image sequence. A summary of the dataset, including the number of images and patients in both the training and testing sets, is provided in [Table 1](#adni-table).
 
 <a id="adni-table"></a>
 
@@ -84,11 +87,17 @@ The ADNI dataset used in this project consists of MRI brain images categorized i
 | **Test**       | 4,460     | 4,540     | 9,000        | 450       |
 | **Total**      | 14,860    | 15,660    | 30,520       | 1526      |
 
-Table 1. ADNI dataset split statistics (images and patients).
+Table 1. ADNI Data Summary Table
 
 ### Data Prepocessing
 
-All MRI images are preprocessed before training. Images are resized to 224 x 224, converted to 1 channel  and normalized using specific mean and standard deviation for each dataset. To enhance model's generalization and prevent overfitting, various data augmentation techniques are used:
+To enhance model's generalization and prevent overfitting, various data augmentation techniques are used:
+
+- Resized to 224 x 224
+
+- Converted to 1 channel
+
+- Normalized using specific mean and standard deviation for each dataset.
 
 - Horizontal Flipping: randomly flips the MRI image left to right, helping the model learn orientation-invariant features.
 
@@ -106,7 +115,7 @@ The training set is further divided into training and validation subsets based o
 
 ## Training Process
 
-The model was trained on the ADNI dataset using PyTorch framework. The model was trained for 260 epochs with early stopping based on validation loss to prevent overfitting. The AdamW optimizer was used to improve training stability and reduce overfitting through weight decay. Regularization schemes such as Label Smoothing, Stochastic Depth/ Drop Path and Dropout were used to improve generalization.
+The model was trained on the ADNI dataset using PyTorch framework. The model was trained for 260 epochs with early stopping based on validation loss to prevent overfitting. For better generalization, the training uses AdamW optimizer with weight decay, Drop Path (Stochastic Depth) and Dropout.
 
 The main hyperparameters used in the training process are summarized in [Table 2](#hyperparameters)
 
@@ -116,7 +125,7 @@ The main hyperparameters used in the training process are summarized in [Table 2
 | ------------------------------| --------------------------------------|
 | Optimizer                     | AdamW                                 |
 | Learning Rate                 | 5e-4                                  |
-| Learning Rate Scheduler       | CosineAnnealingLRWarmestarts          |
+| Learning Rate Scheduler       | CosineAnnealingLRWarmRestarts         |
 | Weight Decay                  | 1e-4                                  |
 | Batch Size                    | 256                                   |
 | Epochs                        | 260                                   |
@@ -172,7 +181,7 @@ To start training the model, enter the following command:<br>
 If your dataset is in another directory than the `BASE_PATH` decfined in `train.py`, you can config the `BASE_PATH` to your dataset directory. Ensuring the dataset (train and test) has separate AD and NC as subfolders.
 You can also cofigurate your own desired hyperparamters in `train.py`.
 ### Make Predictions on Images
-After training your own model, you can load that model and make predictions on images as using command as follow:
+After training your own model, you can load that model and make predictions on images as using command as follow:<br/>
 `python predict.py [--input_path PATH_TO_IMAGE/DIR] [--model_path PATH]`<br>
 You can use the model to classify images as either AD or NC. If the provided path is a directory, the model will predict and display results for each image within it. If the path points to a single image, the model will output the predicted class along with its probability. Optionally, you can specify a custom model path; otherwise, the script will use the `DEFAULT_MODEL_PATH` as defined in `predict.py`
 ## References
