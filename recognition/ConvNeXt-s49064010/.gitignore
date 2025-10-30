@@ -2,3 +2,4 @@
 ../../../.vscode
 *.zip
 __pycache__/
+recognition/ConvNeXt-s49064010/convnet_adni_best_test.pth
