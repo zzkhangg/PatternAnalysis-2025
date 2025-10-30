@@ -111,7 +111,7 @@ To enhance model's generalization and prevent overfitting, various data augmenta
 
 ### Data Split
 
-The training set is further divided into training and validation subsets based on patient ID to prevent data leakage, with 10% of patients allocated to validation and the remaining 90% used for training. Each patient appears in only one subset. The test set is used as provided, without modification.
+The training set is further split into training and validation subsets based on patient IDs to avoid data leakage. Specifically, 10% of the patients are assigned to the validation set, while the remaining 90% are used for training, ensuring each patient appears in only one subset. The test set remains unchanged and is used as provided.
 
 ## Training Process
 
