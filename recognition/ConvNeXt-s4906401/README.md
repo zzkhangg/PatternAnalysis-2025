@@ -152,13 +152,13 @@ Table 2. Summary of hyperparameters and training configuration.
 
 ### Performance metrics
 
-The model was trained for 260 epochs, with the best-performing model selected at the 240th epoch, corresponding to the lowest validation loss. The training and validation loss curves are shown below. As observed, both losses decrease rapidly during the initial epochs, indicating that the model quickly learns useful features. As training continues, the training loss continues to decline smoothly, while the validation loss stabilizes around a consistent range with minor fluctuations, suggesting that the model achieves good generalization without severe overfitting. The periodic rises in training loss correspond to learning rate restarts from the cosine annealing warm restart scheduler, which helps the model escape local minima and continue improving performance.
+The model was trained for 260 epochs, with the best-performing model selected at the 240th epoch, corresponding to the lowest validation loss. The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79. The training and validation loss curves are shown below.
 
 ![](images/loss_curve.png)
 
 Figure 2. Loss curve of train and validation set.
 
-The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79.
+As observed, both losses decrease rapidly during the initial epochs, indicating that the model quickly learns useful features. As training continues, the training loss continues to decline smoothly, while the validation loss stabilizes around a consistent range with minor fluctuations, suggesting that the model achieves good generalization without severe overfitting. The periodic rises in training loss correspond to learning rate restarts from the cosine annealing warm restart scheduler, which helps the model escape local minima and continue improving performance.
 
 ### Confusion Matrix
 The confusion matrix below summarizes the results on the test set.
