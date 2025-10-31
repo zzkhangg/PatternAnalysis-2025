@@ -4,7 +4,7 @@
 
 - [Goal](#Goal)
 - [Model Architecture](#model-architecture)
-    - [ConvNext Block Structure](#convnext_block_structure)
+    - [ConvNext Block Structure](#convnext-block-structure)
         - [Depthwise Convolution Layer](#depthwise-convolution-layer)
         - [Inverted Bottleneck Layer](#inverted-bottleneck-layer)
         - [Normalization Layer](#normalization-layer)
@@ -15,10 +15,13 @@
         - [Classifier Layer](#classifier-layer)
 - [Dataset](#dataset)
     - [Overview](#overview)
+    - [Dataset Structure](#dataset-structure)
+    - [Data Split](#data-split)
     - [Data Preprocessing](#data-prepocessing)
 - [Training Process](#training-process)
 - [Performance and Results](#performance-and-results)
     - [Performance Metrics](#performance-metrics)
+    - [Confusion Matrix](#confusion-matrix)
     - [Example Predictions on Test Images](#example-predictions-on-test-images)
 - [Usage Instructions](#usage-instructions)
     - [Clone the Repository](#clone-the-repository)
@@ -36,6 +39,7 @@ The goal of this project is to classify brain MRI images from the Alzheimer’s 
 ### ConvNext Block Structure
 
 ConvNeXt is a modern convolutional neural network architecture that builds on the strengths of traditional CNNs while incorporating design principles inspired by Vision Transformers. Overall, it achieves transformer-level performance on vision tasks while retaining the efficiency and simplicity of convolutional networks [[1]](#convnext). A ConvNeXt block consists of a large kernel depthwise convolution, layer normalization, pointwise convolution, followed by layer scaling and a resdidual/skip connection with stochastic depth.
+
 #### Depthwise convolution Layer
 In each ConvNeXt block, a depthwise convolution is applied where each input channel is convolved separately with its own filter (groups = number of channels). This preserves the number of channels while allowing spatial feature extraction independently per channel. Depthwise convolution reduces computational cost compared to standard convolution while maintaining the ability to capture spatial patterns in feature maps.
 
@@ -88,6 +92,7 @@ The ADNI dataset employed in this project contains MRI brain scans labeled as ei
 
 Table 1. ADNI Data Summary Table
 
+### Dataset Structure
 The dataset structure is arranged in the following hierarchy:
 ```
 AD_NC/
@@ -98,8 +103,9 @@ AD_NC/
 │   ├── AD/
 │   └── NC/
 ```
-
+### Data Split
 The training set is further split into training and validation subsets based on patient IDs to avoid data leakage. Specifically, 10% of the patients are assigned to the validation set, while the remaining 90% are used for training, ensuring each patient appears in only one subset. The test set remains unchanged and is used as provided.
+
 ### Data Prepocessing
 
 To enhance model's generalization and prevent overfitting, various data augmentation techniques are used:
@@ -123,7 +129,9 @@ To enhance model's generalization and prevent overfitting, various data augmenta
 
 ## Training Process
 
-The model was trained for 260 epochs with early stopping based on validation loss to prevent overfitting. To improve generalization, the training employed the AdamW optimizer with weight decay, along with Drop Path (stochastic depth) and Dropout. Cross-entropy loss with label smoothing was used as the objective function for this classification task.
+The network was trained over 260 epochs, with performance on the validation and test sets continuously monitored to evaluate learning progress and ensure the best-performing model was saved. The AdamW optimizer was employed to efficiently update the model parameters, while a cosine annealing warm restart scheduler dynamically adjusted the learning rate throughout training to enhance convergence stability. To prevent overfitting, regularization techniques such as weight decay and stochastic depth (drop path) were applied.
+
+### Optimizer
 
 The main hyperparameters used in the training process are summarized in [Table 2](#hyperparameters)
 
@@ -142,6 +150,7 @@ The main hyperparameters used in the training process are summarized in [Table 2
 | Layer Scale                   | 1e-6                                  |
 | Label Smoothing               | 0.15                                  |
 | Loss Function                 | CrossEntropyLoss                      |
+| Scheduler Parameters          | T₀ = 50, Tₘᵤₗₜ = 1, ηₘᵢₙ = 5e-6          |
 
 Table 2. Summary of hyperparameters and training configuration.
 
@@ -154,11 +163,25 @@ The model was trained for 260 epochs, with the best-performing model selected at
 
 Figure 3. Loss curve of train and validation set.
 
-The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79. The confusion matrix below summarizes the results on the test set. As observed, the model performs well overall, but it still struggles to distinguish some actual AD cases from Normal Control, resulting in a number of false negatives.
+The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79.
+
+### Confusion Matrix
+The confusion matrix below summarizes the results on the test set.
+
+- True Positives (2825) – These are AD cases correctly predicted as AD.
+
+- True Negatives (4302) – These are NC cases correctly predicted as NC.
+
+- False Negatives (1635) – AD cases incorrectly classified as NC. This means the model sometimes fails to detect Alzheimer’s when it’s actually present.
+
+- False Positives (238) – NC cases incorrectly classified as AD.
 
 <img src="images/confusion_matrix.png" style="width:500px;"/>
 
 Figure 4. Confusion  Matrix
+
+The model demonstrates strong performance in recognizing NC subjects with a specificity of approximately 94.8%, but its sensitivity for detecting AD cases is relatively lower at around 63.3%. This suggests that the model tends to favor predicting the NC class, potentially due to limited feature sensitivity for AD patterns.
+
 
 
 ### Example Predictions on Test Images
