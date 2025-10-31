@@ -38,21 +38,17 @@ The goal of this project is to classify brain MRI images from the Alzheimer’s 
 ## Model Architecture
 ### ConvNext Block Structure
 
-ConvNeXt is a modern convolutional neural network architecture that builds on the strengths of traditional CNNs while incorporating design principles inspired by Vision Transformers. Overall, it achieves transformer-level performance on vision tasks while retaining the efficiency and simplicity of convolutional networks [[1]](#convnext). A ConvNeXt block consists of a large kernel depthwise convolution, layer normalization, pointwise convolution, followed by layer scaling and a resdidual/skip connection with stochastic depth.
+ConvNeXt is a modern convolutional neural network architecture that builds on the strengths of traditional CNNs while incorporating design principles inspired by Vision Transformers. Overall, it achieves transformer-level performance on vision tasks while retaining the efficiency and simplicity of convolutional networks [[1]](#convnext). A ConvNeXt block consists of a large-kernel depthwise convolution, followed by layer normalization and two pointwise (1×1) convolutions with a GELU activation in between. It also includes layer scaling and a residual (skip) connection enhanced with stochastic depth for improved regularization and stability.
 
-#### Depthwise convolution Layer
+#### Depthwise Convolution Layer
 In each ConvNeXt block, a depthwise convolution is applied where each input channel is convolved separately with its own filter (groups = number of channels). This preserves the number of channels while allowing spatial feature extraction independently per channel. Depthwise convolution reduces computational cost compared to standard convolution while maintaining the ability to capture spatial patterns in feature maps.
 
 #### Inverted Bottleneck Layer
-Each ConvNeXt block adopts an inverted bottleneck design, where the feature channels are first expanded by 4× using a 1×1 convolution, followed by a SiLu activation, and then projected back to the original dimension with another 1×1 convolution. This structure allows more computation and non-linearity in a higher-dimensional space, improving feature representation without significantly increasing computational cost.
+Each ConvNeXt block adopts an inverted bottleneck design, where the feature channels are first expanded by 4× using a 1×1 convolution, followed by a SiLU activation, and then projected back to the original dimension with another 1×1 convolution. This structure allows more computation and non-linearity in a higher-dimensional space, improving feature representation without significantly increasing computational cost.
 
 #### Normalization Layer
 Instead of Batch Normalization in ResNet-50, ConvNeXt adopts Layer Normalization which is more stable across different batch sizes.
 
-![ConvNeXt Block](images/convnext_block.png)
-<a id="convnext-block" src="convnext_block.png"></a>
-
-Figure 1. ConvNeXt Block Structure
 
 ### Architecture
 The network is organized into stages, with stem layer at first and downsampling layers in between to progressively reduce spatial resolution while increasing feature depth. Each stage includes multiple residual blocks learning the feature at the corresponding resolution.
@@ -74,7 +70,7 @@ The ConvNeXt architecture ends with a Global Average Pooling layer followed by L
 
 <a id="convnext-structure"></a>
 
-Figure 2. ConvNeXt architecture used in this project
+Figure 1. ConvNeXt architecture used in this project
 
 ## Dataset
 
@@ -131,8 +127,6 @@ To enhance model's generalization and prevent overfitting, various data augmenta
 
 The network was trained over 260 epochs, with performance on the validation and test sets continuously monitored to evaluate learning progress and ensure the best-performing model was saved. The AdamW optimizer was employed to efficiently update the model parameters, while a cosine annealing warm restart scheduler dynamically adjusted the learning rate throughout training to enhance convergence stability. To prevent overfitting, regularization techniques such as weight decay and stochastic depth (drop path) were applied.
 
-### Optimizer
-
 The main hyperparameters used in the training process are summarized in [Table 2](#hyperparameters)
 
 <a id="hyperparameters"></a>
@@ -157,11 +151,12 @@ Table 2. Summary of hyperparameters and training configuration.
 ## Performance and Results
 
 ### Performance metrics
-The model was trained for 260 epochs, with the best-performing model selected at the 240th epoch, corresponding to the lowest validation loss. The training and validation loss curves are shown below. As observed, the training loss dips slightly below the validation loss, suggesting a minor degree of overfitting.
+
+The model was trained for 260 epochs, with the best-performing model selected at the 240th epoch, corresponding to the lowest validation loss. The training and validation loss curves are shown below. As observed, both losses decrease rapidly during the initial epochs, indicating that the model quickly learns useful features. As training continues, the training loss continues to decline smoothly, while the validation loss stabilizes around a consistent range with minor fluctuations, suggesting that the model achieves good generalization without severe overfitting. The periodic rises in training loss correspond to learning rate restarts from the cosine annealing warm restart scheduler, which helps the model escape local minima and continue improving performance.
 
 ![](images/loss_curve.png)
 
-Figure 3. Loss curve of train and validation set.
+Figure 2. Loss curve of train and validation set.
 
 The model achieved an overall accuracy of 79.19% on test dataset, with a precision of 0.82, recall of 0.79, and an F1-score of 0.79.
 
@@ -178,7 +173,7 @@ The confusion matrix below summarizes the results on the test set.
 
 <img src="images/confusion_matrix.png" style="width:500px;"/>
 
-Figure 4. Confusion  Matrix
+Figure 3. Confusion  Matrix
 
 The model demonstrates strong performance in recognizing NC subjects with a specificity of approximately 94.8%, but its sensitivity for detecting AD cases is relatively lower at around 63.3%. This suggests that the model tends to favor predicting the NC class, potentially due to limited feature sensitivity for AD patterns.
 
