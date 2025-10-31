@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 from modules import ConvNeXt
 from dataset import get_loaders
 from sklearn.metrics import classification_report
-# --- Paths ---
+
+# --- Base Path ---
 BASE_PATH = "ADNI"
 
 # For training/validation
 train_loader, val_loader = get_loaders(base_path=BASE_PATH, is_train=True, batch_size=256)
 
 test_loader = get_loaders(base_path=BASE_PATH, is_train=False, batch_size=128)
+
 # Device Configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -27,6 +29,7 @@ label_smoothing = 0.15
 learning_rate = 5e-4
 weight_decay = 1e-4
 
+# Training setup
 model = ConvNeXt(in_chans=in_chans, num_classes=num_classes, drop_path_rate=drop_path_rate).to(device)
 criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
@@ -147,6 +150,7 @@ plt.title('Accuracy Curve')
 plt.savefig(os.path.join(IMG_DIR, "accuracy_curve.png"))
 plt.close()
 
+# ---- Print performance metrics on Test Dataset ----
 all_labels = []
 all_preds = []
 

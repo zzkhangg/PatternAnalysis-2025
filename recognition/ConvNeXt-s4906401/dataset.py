@@ -7,11 +7,21 @@ from sklearn.model_selection import train_test_split
 
 # --- Transformations ---
 def build_transform(is_train=True):
+    """
+    Builds a set of image transformations for preprocessing MRI data.
+
+    Args:
+        is_train (bool): Whether to apply training augmentations. 
+                         If False, only basic preprocessing is applied.
+
+    Returns:
+        torchvision.transforms.Compose: The composed set of transformations.
+    """
     if is_train:
         return transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.Resize((224, 224)),
-            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomHorizontalFlip(p=0.5), #
             transforms.RandomRotation(degrees=10),
             transforms.RandomAffine(degrees=0, translate=(0.05, 0.05)),
             transforms.ColorJitter(brightness=0.1, contrast=0.2, saturation=0.05),

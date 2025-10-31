@@ -6,7 +6,7 @@ from dataset import build_transform
 import argparse
 import torch.nn.functional as F
 
-
+# device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --- Load model ---
